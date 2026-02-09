@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 
 from .client import ResendClient, ResendError
-from .config import DEFAULT_FROM, DEFAULT_REPLY_TO, DEFAULT_SIGNATURE, load_api_key
+from .config import get_default_from, get_default_reply_to, get_default_signature, load_api_key
 from .formatters import (
     print_audience_created,
     print_audience_deleted,
@@ -42,7 +42,7 @@ def cli():
 @click.option("--html", "html_body", default=None, help="HTML body")
 @click.option("--html-file", default=None, type=click.Path(exists=True), help="Read HTML from file")
 @click.option("--text-file", default=None, type=click.Path(exists=True), help="Read text from file")
-@click.option("--from", "from_addr", default=None, help=f"Sender (default: {DEFAULT_FROM})")
+@click.option("--from", "from_addr", default=None, help="Sender (default: from RESEND_FROM env/config)")
 @click.option("--reply-to", "reply_to", default=None, help="Reply-to address")
 @click.option("--cc", multiple=True, help="CC recipient(s)")
 @click.option("--bcc", multiple=True, help="BCC recipient(s)")
@@ -64,17 +64,21 @@ def send(to_addrs, subject, text_body, html_body, html_file, text_file,
         sys.exit(1)
 
     if sign:
-        if text_body:
-            text_body = text_body + f"\n\n{DEFAULT_SIGNATURE}"
-        if html_body:
-            html_body = html_body + f"<br><br>{DEFAULT_SIGNATURE}"
+        sig = get_default_signature()
+        if sig:
+            if text_body:
+                text_body = text_body + f"\n\n{sig}"
+            if html_body:
+                html_body = html_body + f"<br><br>{sig}"
 
     payload: dict = {
-        "from": from_addr or DEFAULT_FROM,
+        "from": from_addr or get_default_from(),
         "to": list(to_addrs),
         "subject": subject,
-        "reply_to": [reply_to or DEFAULT_REPLY_TO],
     }
+    default_reply = reply_to or get_default_reply_to()
+    if default_reply:
+        payload["reply_to"] = [default_reply]
     if text_body:
         payload["text"] = text_body
     if html_body:

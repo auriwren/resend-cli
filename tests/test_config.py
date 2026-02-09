@@ -2,10 +2,14 @@
 
 import os
 import pytest
-from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 
-from resend_cli.config import load_api_key, DEFAULT_FROM, DEFAULT_REPLY_TO, DEFAULT_SIGNATURE
+from resend_cli.config import (
+    load_api_key,
+    get_default_from,
+    get_default_reply_to,
+    get_default_signature,
+)
 
 
 def test_load_from_env():
@@ -57,7 +61,33 @@ def test_load_file_with_comments():
             assert load_api_key() == "re_val"
 
 
-def test_defaults():
-    assert "auri@auri.email" in DEFAULT_FROM
-    assert DEFAULT_REPLY_TO == "auri@auri.email"
-    assert "Auri Wren" in DEFAULT_SIGNATURE
+def test_get_default_from_env():
+    with patch.dict(os.environ, {"RESEND_FROM": "Test <test@example.com>"}):
+        assert get_default_from() == "Test <test@example.com>"
+
+
+def test_get_default_from_file():
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.pop("RESEND_FROM", None)
+        with patch("resend_cli.config.CREDENTIALS_PATH") as mock_path:
+            mock_path.exists.return_value = True
+            mock_path.read_text.return_value = 'RESEND_FROM="Agent <agent@domain.com>"\n'
+            assert get_default_from() == "Agent <agent@domain.com>"
+
+
+def test_get_default_from_fallback():
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.pop("RESEND_FROM", None)
+        with patch("resend_cli.config.CREDENTIALS_PATH") as mock_path:
+            mock_path.exists.return_value = False
+            assert get_default_from() == "sender@example.com"
+
+
+def test_get_default_reply_to_env():
+    with patch.dict(os.environ, {"RESEND_REPLY_TO": "reply@example.com"}):
+        assert get_default_reply_to() == "reply@example.com"
+
+
+def test_get_default_signature_env():
+    with patch.dict(os.environ, {"RESEND_SIGNATURE": "-- Test Agent"}):
+        assert get_default_signature() == "-- Test Agent"
